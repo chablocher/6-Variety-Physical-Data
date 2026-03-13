@@ -1,0 +1,319 @@
+---
+title: "6 Var Phys"
+author: "Chase Baerlocher"
+date: "2025-12-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Library
+
+```{r Library, include=FALSE}
+
+library(dplyr)
+library(ggplot2)
+library(agricolae)
+library(readxl)
+library(tidyverse)
+library(car)
+library(emmeans)
+library(lme4)
+library(multcomp)
+library(plotrix)
+library(rcompanion)
+library(ggpubr)
+library(brms)
+
+
+```
+
+### Data
+
+```{r data}
+
+pb<-phys_bin
+
+pb$var<-factor(pb$var,levels = c("me","w","l","mi","d","k"),labels = c("Melrose","Windham","Lynx","MiCa","Dint","Klondike"))
+pb$aph<-factor(pb$aph,levels = c(0,1,2),labels = c("None","PEMV-","PEMV+"))
+pb$rhiz<-factor(pb$rhiz,levels = c(1,0),labels = c("R","NR"))
+
+ggplot(pb,aes(x=sw))+
+  geom_histogram(binwidth = 0.1, fill = "cyan", color = "black")+
+  labs(title = "SW", x = "Shoot Weight", y = "Count")+
+  theme_minimal()
+
+qqnorm(pb$sw)
+qqline(pb$sw,col="red")
+
+shapiro.test((pb$sw))
+
+leveneTest(sw~var*rhiz*aph, data=pb)
+
+sw.lm<-lm(sw~var*aph*rhiz,data = pb)
+summary(sw.lm)
+
+sw.anova<-aov(sw~var*aph*rhiz,data = pb)
+TukeyHSD(sw.anova)
+
+shapiro.test(residuals(sw.lm))
+
+qqnorm(residuals(sw.lm))
+qqline(residuals(sw.lm))
+
+plot(sw.lm, which = 1)
+plot(sw.lm, which = 2)
+
+
+ggplot(pb,aes(x=rw))+
+  geom_histogram(binwidth = 0.1, fill = "cyan", color = "black")+
+  labs(title = "RW", x = "Root Weight", y = "Count")+
+  theme_minimal()
+
+qqnorm(pb$rw)
+qqline(pb$rw,col="red")
+
+shapiro.test((pb$rw))
+
+rw.lm<-lm(rw~var*aph*rhiz,data = pb)
+summary(rw.lm)
+
+rw.anova<-aov(rw~var*aph*rhiz,data = pb)
+TukeyHSD(rw.anova)
+
+nb<-nymph_bin
+
+nb$var<-factor(nb$var,levels = c("me","w","l","mi","d","k"),labels = c("Melrose","Windham","Lynx","MiCa","Dint","Klondike"))
+nb$aph<-factor(nb$aph,levels = c(0,1,2),labels = c("None","PEMV-","PEMV+"))
+nb$rhiz<-factor(nb$rhiz,levels = c(1,0),labels = c("R","NR"))
+
+ggplot(nb,aes(x=nym))+
+  geom_histogram(binwidth = 0.1, fill = "cyan", color = "black")+
+  labs(title = "nb", x = "Nymph Count", y = "Count")+
+  theme_minimal()
+
+qqnorm(nb$nym)
+qqline(nb$nym,col="red")
+
+shapiro.test((nb$nym))
+
+nb.lm<-lm(nym~var*aph*rhiz,data = nb)
+summary(nb.lm)
+
+nb.anova<-aov(nym~var*aph*rhiz,data = nb)
+TukeyHSD(nb.anova)
+
+nodb<-nod_bin
+
+nodb$var<-factor(nodb$var,levels = c("me","w","l","mi","d","k"),labels = c("Melrose","Windham","Lynx","MiCa","Dint","Klondike"))
+nodb$aph<-factor(nodb$aph,levels = c(0,1,2),labels = c("None","PEMV-","PEMV+"))
+nodb$rhiz<-factor(nodb$rhiz,levels = c(1,0),labels = c("R","NR"))
+
+ggplot(nodb,aes(x=nod))+
+  geom_histogram(binwidth = 0.1, fill = "cyan", color = "black")+
+  labs(title = "nodb", x = "Var", y = "Nod")+
+  theme_minimal()
+
+nodb.lm<-lm(nod~aph*var,data = nodb)
+summary(nodb.lm)
+
+nodb.all.lm<-lm(nod~var*aph,data=nodb)
+nodb.anova<-aov(nod~var*aph,data = nodb)
+TukeyHSD(nodb.anova)
+
+
+```
+### Data Transformation
+
+```{r data transformation}
+
+pb.log<-pb
+
+pb.log$sw<-log(pb.log$sw)
+
+sw.log.model<-lm(sw~var*rhiz*aph, data=pb.log)
+
+shapiro.test(residuals(sw.log.model))
+
+qqnorm(residuals(sw.log.model))
+qqline(residuals(sw.log.model))
+
+plot(sw.log.model, which = 1)
+plot(sw.log.model, which = 2)
+
+
+sw.glm.model<-glm(sw~var*rhiz*aph,
+                  family = Gamma(link = "log"),
+                  data = pb)
+
+
+```
+### Model Work
+
+```{r model work}
+
+sw.model<-lm(sw~var*rhiz*aph,data=pb)
+rhiz_sw.contrast<-emmeans(
+  sw.model,
+  pairwise ~ rhiz | var*aph
+)
+
+rhiz_sw.contrast$contrasts
+
+sw.contrast_df<-as.data.frame(rhiz_sw.contrast$contrasts)
+
+sw.all.lm<-lm(sw~var*rhiz*aph,data=pb)
+anova(sw.all.lm)
+
+rw.model<-lm(rw~var*rhiz*aph,data=pb)
+rhiz_rw.contrast<-emmeans(
+  rw.model,
+  pairwise~rhiz | var*aph
+)
+
+rhiz_rw.contrast$contrasts
+
+rw.contrast_df<-as.data.frame(rhiz_rw.contrast$contrasts)
+
+rw.all.lm<-lm(rw~var*rhiz*aph,data=pb)
+anova(rw.all.lm)
+
+nc.model<-lm(nym~var*rhiz*aph,data=nb)
+rhiz_nc.contrast<-emmeans(
+  nc.model,
+  pairwise~rhiz | var*aph
+)
+
+rhiz_nc.contrast$contrasts
+
+nc.contrast_df<-as.data.frame(rhiz_nc.contrast$contrasts)
+
+
+```
+### Table Work
+
+
+```{r table work}
+
+sw.summary_table<-sw.contrast_df %>%
+  rename(
+    Variety = var,
+    Aphid = aph,
+    Effect = estimate,
+    SE = SE,
+    P_value = p.value
+  ) %>%
+  mutate(
+    CI_lower = Effect - 1.96 * SE,
+    CI_upper = Effect + 1.96 * SE
+  )
+
+rw.summary_table<-rw.contrast_df %>%
+  rename(
+    Variety = var,
+    Aphid = aph,
+    Effect = estimate,
+    SE = SE,
+    P_value = p.value
+  ) %>%
+  mutate(
+    CI_lower = Effect - 1.96 * SE,
+    CI_upper = Effect + 1.96 * SE
+  )
+
+nc.summary_table<-nc.contrast_df %>%
+  rename(
+    Variety = var,
+    Aphid = aph,
+    Effect = estimate,
+    SE = SE,
+    P_value = p.value
+  ) %>%
+  mutate(
+    CI_lower = Effect - 1.96 * SE,
+    CI_upper = Effect + 1.96 * SE
+  )
+
+```
+###Forest plot
+
+```{r forest plot}
+
+sw.forest.plot<-ggplot(sw.summary_table,
+       aes(x=Effect,
+           y=Variety,
+           color=Aphid)) +
+  geom_vline(xintercept = 0, linetype="dashed") +
+  geom_errorbar(aes(xmin = CI_lower, xmax = CI_upper), height = 0.2) +
+  geom_point(size = 3) +
+  scale_color_manual(
+    values = c(
+      "None" = "black",
+      "PEMV-" = "coral",
+      "PEMV+" = "cyan3"
+    )
+  )+
+  theme_classic() +
+  labs(x = "Rhizobia Effect on Shoot Growth",
+       y = "Winter Pea Variety",
+       color = "Aphid")
+
+rw.forest.plot<-ggplot(rw.summary_table,
+       aes(x=Effect,
+           y=Variety,
+           color=Aphid)) +
+  geom_vline(xintercept = 0, linetype="dashed") +
+  geom_errorbar(aes(xmin = CI_lower, xmax = CI_upper), height = 0.2) +
+  geom_point(size = 3) +
+  scale_color_manual(
+    values = c(
+      "None" = "black",
+      "PEMV-" = "coral",
+      "PEMV+" = "cyan3"
+    )
+  )+
+  theme_classic() +
+  labs(x = "Rhizobia Effect on Root Growth",
+       y = "Winter Pea Variety",
+       color = "Aphid")
+
+  
+nc.forest.plot<-ggplot(nc.summary_table,
+       aes(x=Effect,
+           y=Variety,
+           color=Aphid)) +
+  geom_vline(xintercept = 0, linetype="dashed") +
+  geom_errorbar(aes(xmin = CI_lower, xmax = CI_upper), height = 0.2) +
+  geom_point(size = 3) +
+  scale_color_manual(
+    values = c(
+      "PEMV-" = "coral",
+      "PEMV+" = "cyan3"
+    )
+  )+
+  theme_classic() +
+  labs(x = "Rhizobia Effect on Aphid Reproduction",
+       y = "Winter Pea Variety",
+       color = "Aphid")
+
+
+
+```
+### Modeling
+
+```{r modeling}
+
+
+pb_sw<-bf(sw~aph + (1|var))
+pb_rw<-bf(rw~aph + (1|var))
+
+comp.model <-brm(
+  pb_sw + pb_rw + set_rescor(TRUE),
+  data = pb
+)
+
+
+```
