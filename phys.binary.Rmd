@@ -1,3 +1,4 @@
+
 ---
 title: "6 Var Phys"
 author: "Chase Baerlocher"
